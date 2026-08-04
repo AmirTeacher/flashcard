@@ -71,6 +71,10 @@
   .setitem .info{flex:1;min-width:0;cursor:pointer;}
   .setitem .title{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .badge{background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:6px;padding:2px 6px;vertical-align:middle;}
+  .dirtoggle{position:fixed;top:10px;left:10px;z-index:10;background:#33333c;color:var(--sub);
+    padding:6px 10px;font-size:12px;border-radius:8px;}
+  body.dir-ltr .card-inner{direction:ltr !important;text-align:left !important;}
+  body.dir-rtl .card-inner{direction:rtl !important;text-align:right !important;}
   .setitem .meta{color:var(--sub);font-size:12px;margin-top:2px;}
   .delbtn{background:transparent;color:var(--bad);padding:6px 10px;font-size:13px;flex-shrink:0;}
   .empty{color:var(--sub);font-size:14px;text-align:center;margin-top:24px;}
@@ -99,6 +103,7 @@
 </style>
 </head>
 <body>
+<button class="dirtoggle" id="dirToggle" title="Card text direction">Auto</button>
 <div class="wrap">
 
   <!-- HOME SCREEN -->
@@ -203,10 +208,7 @@
   const STORE = 'handles';
   const FALLBACK_SETS_KEY = 'flashcards_fallback_sets_v1';
   const FALLBACK_TRACKS_KEY = 'flashcards_fallback_tracks_v1';
-  const ONLINE_PUBLIC_FLASHCARDS = [
-    "https://raw.githubusercontent.com/AmirTeacher/flashcard/refs/heads/main/504.txt",
-    "https://ctxt.io/3/pVbaoouZ2"
-  ]; // urls of read-only .txt flashcard sets; e.g. 'https://example.com/verbs.txt'
+  const ONLINE_PUBLIC_FLASHCARDS = []; // urls of read-only .txt flashcard sets; e.g. 'https://example.com/verbs.txt'
   const TRACKS_SUFFIX = '.tracks.txt';
 
   const screens = {
@@ -970,6 +972,26 @@
     fileInputEl.value = '';
     alert('Imported ' + files.length + ' file(s). Open "My saved sets" to study them.');
   });
+
+  // ---------- card direction toggle (neutral / ltr / rtl) ----------
+  (function initDirToggle(){
+    const KEY = 'flashcards_dir_mode';
+    const STATES = ['neutral','ltr','rtl'];
+    const LABELS = { neutral:'Auto', ltr:'→ LTR', rtl:'RTL ←' };
+    const btn = document.getElementById('dirToggle');
+    let mode = localStorage.getItem(KEY) || 'neutral';
+    function apply(){
+      document.body.classList.remove('dir-ltr','dir-rtl');
+      if(mode !== 'neutral') document.body.classList.add('dir-' + mode);
+      btn.textContent = LABELS[mode];
+    }
+    btn.addEventListener('click', () => {
+      mode = STATES[(STATES.indexOf(mode) + 1) % STATES.length];
+      localStorage.setItem(KEY, mode);
+      apply();
+    });
+    apply();
+  })();
 
   // ---------- init ----------
   show('home');
