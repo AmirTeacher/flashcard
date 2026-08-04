@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flashcards</title>
+<style>
+  :root{
+    --bg:#1b1b1f; --card:#26262c; --ink:#eee; --sub:#9a9aa5;
+    --accent:#7c8cff; --good:#3ecf8e; --bad:#ff5d5d; --hint:#f5c451;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex;align-items:center;justify-content:center;padding:20px;}
+  .wrap{width:100%;max-width:560px;}
+  input[type="text"]{width:100%;background:var(--card);color:var(--ink);
+    border:1px solid #3a3a42;border-radius:10px;padding:12px 14px;font-size:15px;
+    font-family:inherit;margin-bottom:12px;}
+  textarea{width:100%;height:260px;background:var(--card);color:var(--ink);
+    border:1px solid #3a3a42;border-radius:10px;padding:14px;font-size:14px;
+    line-height:1.5;resize:vertical;font-family:inherit;}
+  .hint-txt{color:var(--sub);font-size:13px;margin:8px 0 14px;}
+  button{cursor:pointer;border:none;border-radius:10px;font-size:15px;
+    font-weight:600;padding:12px 18px;font-family:inherit;}
+  .primary{background:var(--accent);color:#111;width:100%;}
+  .primary:disabled{opacity:.4;cursor:not-allowed;}
+  .secondary{background:#33333c;color:var(--ink);width:100%;}
+  .ghost{background:transparent;color:var(--sub);padding:8px 4px;font-weight:500;}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .progress{color:var(--sub);font-size:14px;}
+  .card-stage{display:flex;justify-content:center;}
+  .card{background:var(--card);border-radius:16px;min-height:260px;
+    cursor:pointer;user-select:none;
+    box-shadow:0 8px 24px rgba(0,0,0,.3);transition:transform .15s;
+    position:relative;width:100%;flex:0 0 auto;overflow:hidden;}
+  .card:active{transform:scale(.98);}
+  .card.answer{background:#2a2f3d;}
+  .card.resizing{transition:none;}
+  .card-inner{position:absolute;inset:0;overflow:auto;
+    display:flex;padding:32px 24px;text-align:center;
+    scrollbar-width:none;-ms-overflow-style:none;}
+  .card-inner::-webkit-scrollbar{display:none;}
+  .card-text{margin:auto;width:100%;font-size:22px;
+    white-space:pre-wrap;word-break:break-word;tab-size:4;}
+  .rs-handle{position:absolute;width:26px;height:26px;touch-action:none;
+    display:flex;align-items:center;justify-content:center;z-index:2;}
+  .rs-handle::after{content:'';width:8px;height:8px;border-radius:50%;
+    background:var(--sub);opacity:.35;transition:opacity .15s;}
+  .card:hover .rs-handle::after,.rs-handle:hover::after{opacity:.85;}
+  .rs-nw{top:0;left:0;transform:translate(-50%,-50%);cursor:nwse-resize;}
+  .rs-ne{top:0;right:0;transform:translate(50%,-50%);cursor:nesw-resize;}
+  .rs-sw{bottom:0;left:0;transform:translate(-50%,50%);cursor:nesw-resize;}
+  .rs-se{bottom:0;right:0;transform:translate(50%,50%);cursor:nwse-resize;}
+  .hintbox{margin-top:14px;text-align:center;color:var(--hint);font-size:15px;min-height:20px;
+    white-space:pre-wrap;word-break:break-word;tab-size:4;}
+  .row{display:flex;gap:10px;margin-top:16px;}
+  .row button{flex:1;}
+  .hintbtn{background:#33333c;color:var(--hint);}
+  .know{background:var(--good);color:#062;}
+  .dontknow{background:var(--bad);color:#500;}
+  .center{text-align:center;}
+  .msg{color:var(--sub);margin-top:10px;font-size:14px;}
+  .hidden{display:none !important;}
+  h1{font-size:20px;margin:0 0 6px;}
+  .small{color:var(--sub);font-size:13px;}
+  .stack{display:flex;flex-direction:column;gap:12px;margin-top:18px;}
+  .setlist{display:flex;flex-direction:column;gap:10px;margin-top:16px;}
+  .setitem{background:var(--card);border:1px solid #3a3a42;border-radius:12px;
+    padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .setitem .info{flex:1;min-width:0;cursor:pointer;}
+  .setitem .title{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .badge{background:var(--accent);color:#111;font-size:10px;font-weight:700;border-radius:6px;padding:2px 6px;vertical-align:middle;}
+  .setitem .meta{color:var(--sub);font-size:12px;margin-top:2px;}
+  .delbtn{background:transparent;color:var(--bad);padding:6px 10px;font-size:13px;flex-shrink:0;}
+  .empty{color:var(--sub);font-size:14px;text-align:center;margin-top:24px;}
+  .backrow{margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+  .folderbox{background:var(--card);border:1px solid #3a3a42;border-radius:12px;
+    padding:12px 14px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .folderbox .flabel{font-size:13px;color:var(--sub);}
+  .folderbox .fname{font-size:14px;font-weight:600;margin-top:2px;word-break:break-all;}
+  .folderbtn{background:#33333c;color:var(--ink);padding:8px 12px;font-size:13px;flex-shrink:0;}
+  .warn{background:#3a2f22;color:#f5c451;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:14px;}
+  .filerow{display:flex;gap:10px;margin-top:12px;}
+  .filerow button{flex:1;}
+  .setdetail-head{margin-bottom:6px;}
+  .tracklist{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+  .trackitem{background:var(--card);border:1px solid #3a3a42;border-radius:12px;
+    padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .trackitem .tinfo{flex:1;min-width:0;}
+  .trackitem .tstate{font-weight:600;font-size:14px;}
+  .trackitem .tmeta{color:var(--sub);font-size:12px;margin-top:2px;}
+  .trackitem .tbtns{display:flex;gap:6px;flex-shrink:0;}
+  .contbtn{background:var(--accent);color:#111;padding:8px 12px;font-size:13px;}
+  .tdelbtn{background:transparent;color:var(--bad);padding:8px 8px;font-size:13px;}
+  .sectiontitle{font-size:13px;color:var(--sub);margin:20px 0 4px;text-transform:uppercase;letter-spacing:.04em;}
+  
+  .card.answer .card-inner {direction: ltr; text-align: left;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HOME SCREEN -->
+  <div id="home">
+    <h1>Flashcards</h1>
+    <p class="small">Create a new set or study one you've saved.</p>
+    <div class="stack">
+      <button class="primary" id="newSetBtn">+ New set</button>
+      <button class="secondary" id="viewLibraryBtn">📚 My saved sets</button>
+    </div>
+    <div class="folderbox" id="folderbox">
+      <div>
+        <div class="flabel">Save folder</div>
+        <div class="fname" id="folderName">No folder selected</div>
+      </div>
+      <button class="folderbtn" id="chooseFolderBtn">Choose folder</button>
+    </div>
+    <p class="warn hidden" id="fsaWarn">Your browser can't save files directly to a folder (this works in Chrome / Edge). Sets and progress will be kept in this browser's local storage instead, with Export / Import to move .txt files around.</p>
+    <div class="filerow" id="fallbackRow" style="display:none;">
+      <button class="folderbtn" id="importBtn">Import .txt files</button>
+    </div>
+    <input type="file" id="fileInput" accept=".txt" multiple class="hidden">
+  </div>
+
+  <!-- LIBRARY SCREEN -->
+  <div id="library" class="hidden">
+    <div class="backrow"><button class="ghost" id="libBackBtn">&larr; Back</button></div>
+    <h1>Saved sets</h1>
+    <div id="setlist" class="setlist"></div>
+    <p id="libEmpty" class="empty hidden">No saved sets yet. Create one to get started.</p>
+    <p id="libNoFolder" class="empty hidden">Choose a save folder from the home screen first.</p>
+  </div>
+
+  <!-- SET DETAIL SCREEN (choose: new round or continue a track) -->
+  <div id="setDetail" class="hidden">
+    <div class="backrow"><button class="ghost" id="detailBackBtn">&larr; Back</button></div>
+    <div class="setdetail-head">
+      <h1 id="detailTitle">Set</h1>
+      <p class="small" id="detailMeta"></p>
+    </div>
+    <button class="primary" id="newRoundBtn">▶ Start a new round</button>
+    <p class="sectiontitle" id="tracksLabel">In-progress &amp; past rounds</p>
+    <div id="tracklist" class="tracklist"></div>
+    <p id="tracksEmpty" class="empty hidden">No rounds started yet for this set.</p>
+  </div>
+
+  <!-- INPUT/CREATE SCREEN -->
+  <div id="setup" class="hidden">
+    <div class="backrow"><button class="ghost" id="setupBackBtn">&larr; Back</button></div>
+    <h1>New set</h1>
+    <input type="text" id="titleInput" placeholder="Set title (e.g. Spanish Verbs)">
+    <p class="small">One card per line: <code>Question | Answer | Hint (optional)</code></p>
+    <p class="small">Or, for multi-line: wrap any field in <code>```like this```</code>, e.g. <code>Question | ```multi-line Answer``` | Hint</code></p>
+    <textarea id="input" placeholder="What is the capital of France? | Paris | Starts with P
+2+2? | 4"></textarea>
+    <div style="margin-top:12px;">
+      <button class="primary" id="startBtn">Save &amp; Start</button>
+    </div>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div id="quiz" class="hidden">
+    <div class="backrow"><button class="ghost" id="quizExitBtn">&larr; Exit (progress is saved)</button></div>
+    <div class="top">
+      <span class="progress" id="progress"></span>
+      <span class="progress" id="round"></span>
+    </div>
+    <div class="card-stage" id="cardStage">
+      <div class="card" id="card">
+        <div class="card-inner">
+          <span class="card-text" id="cardText"></span>
+        </div>
+        <div class="rs-handle rs-nw" data-corner="nw"></div>
+        <div class="rs-handle rs-ne" data-corner="ne"></div>
+        <div class="rs-handle rs-sw" data-corner="sw"></div>
+        <div class="rs-handle rs-se" data-corner="se"></div>
+      </div>
+    </div>
+    <div class="hintbox" id="hintbox"></div>
+    <div class="row">
+      <button class="hintbtn" id="hintBtn">Hint</button>
+    </div>
+    <div class="row hidden" id="judgeRow">
+      <button class="dontknow" id="wrongBtn">Didn't know it</button>
+      <button class="know" id="rightBtn">Knew it</button>
+    </div>
+  </div>
+
+  <!-- DONE SCREEN -->
+  <div id="done" class="hidden center">
+    <h1>🎉 All cards mastered!</h1>
+    <p class="msg" id="doneMsg"></p>
+    <button class="primary" id="restartBtn">Back to home</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const FSA_SUPPORTED = 'showDirectoryPicker' in window;
+  const DB_NAME = 'flashcards-fs';
+  const STORE = 'handles';
+  const FALLBACK_SETS_KEY = 'flashcards_fallback_sets_v1';
+  const FALLBACK_TRACKS_KEY = 'flashcards_fallback_tracks_v1';
+  const ONLINE_PUBLIC_FLASHCARDS = [
+    
+  ]; // urls of read-only .txt flashcard sets; e.g. 'https://example.com/verbs.txt'
+  const TRACKS_SUFFIX = '.tracks.txt';
+
+  const screens = {
+    home: document.getElementById('home'),
+    library: document.getElementById('library'),
+    setDetail: document.getElementById('setDetail'),
+    setup: document.getElementById('setup'),
+    quiz: document.getElementById('quiz'),
+    done: document.getElementById('done'),
+  };
+  function show(name){
+    Object.values(screens).forEach(el => el.classList.add('hidden'));
+    screens[name].classList.remove('hidden');
+  }
+
+  const cardEl = document.getElementById('card');
+  const cardTextEl = document.getElementById('cardText');
+  const hintboxEl = document.getElementById('hintbox');
+  const hintBtn = document.getElementById('hintBtn');
+  const judgeRow = document.getElementById('judgeRow');
+  const progressEl = document.getElementById('progress');
+  const roundEl = document.getElementById('round');
+  const setlistEl = document.getElementById('setlist');
+  const libEmptyEl = document.getElementById('libEmpty');
+  const libNoFolderEl = document.getElementById('libNoFolder');
+  const titleInput = document.getElementById('titleInput');
+  const textInput = document.getElementById('input');
+  const folderNameEl = document.getElementById('folderName');
+  const chooseFolderBtn = document.getElementById('chooseFolderBtn');
+  const fsaWarnEl = document.getElementById('fsaWarn');
+  const fallbackRowEl = document.getElementById('fallbackRow');
+  const fileInputEl = document.getElementById('fileInput');
+  const detailTitleEl = document.getElementById('detailTitle');
+  const detailMetaEl = document.getElementById('detailMeta');
+  const tracklistEl = document.getElementById('tracklist');
+  const tracksEmptyEl = document.getElementById('tracksEmpty');
+
+  // ---- quiz/round state ----
+  let deck = [];
+  let idx = 0;
+  let round = 1;
+  let totalInRound = 0;
+  let answeredOffset = 0;   // cards already processed before this in-memory deck (for progress display when resuming)
+  let wrong = [];
+  let flipped = false;
+  let hintShown = false;
+  let dirHandle = null;
+
+  // ---- current set / track context ----
+  let currentSet = null;     // { title, filename, rawText, cards }
+  let currentTrack = null;   // the track object currently being played
+  let tracksCache = [];      // all tracks belonging to currentSet
+
+  function genId(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  // ---------- tiny IndexedDB helper (remembers the chosen folder handle) ----------
+  function idbOpen(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbGet(key){
+    try{
+      const db = await idbOpen();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORE, 'readonly');
+        const r = tx.objectStore(STORE).get(key);
+        r.onsuccess = () => resolve(r.result || null);
+        r.onerror = () => resolve(null);
+      });
+    }catch(e){ return null; }
+  }
+  async function idbSet(key, val){
+    try{
+      const db = await idbOpen();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put(val, key);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    }catch(e){ return false; }
+  }
+
+  // ---------- folder handling ----------
+  function sanitizeFilename(title){
+    const base = title.trim().replace(/[\/\\:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+    return (base || 'Untitled set').slice(0, 120);
+  }
+
+  function updateFolderStatus(){
+    folderNameEl.textContent = dirHandle ? dirHandle.name : 'No folder selected';
+  }
+
+  async function initFolder(){
+    if(!FSA_SUPPORTED){
+      fsaWarnEl.classList.remove('hidden');
+      fallbackRowEl.style.display = 'flex';
+      chooseFolderBtn.classList.add('hidden');
+      return;
+    }
+    const stored = await idbGet('dir');
+    if(stored){
+      try{
+        const perm = await stored.queryPermission({ mode: 'readwrite' });
+        if(perm === 'granted'){
+          dirHandle = stored;
+        }
+      }catch(e){ /* stale/invalid handle */ }
+    }
+    updateFolderStatus();
+  }
+
+  async function chooseFolder(){
+    if(!FSA_SUPPORTED) return;
+    try{
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      dirHandle = handle;
+      await idbSet('dir', handle);
+      updateFolderStatus();
+    }catch(e){ /* user cancelled */ }
+  }
+
+  async function ensureFolder(){
+    if(dirHandle) return true;
+    await chooseFolder();
+    return !!dirHandle;
+  }
+
+  // ---------- parsing ----------
+  // Splits one logical card's raw text into fields on '|', treating any
+  // ```...``` region as literal content. What gets removed:
+  //  - the ``` markers themselves
+  //  - a single newline directly touching them (right after the opening ```
+  //    / right before the closing ```, if present)
+  //  - plain whitespace padding sitting between a '|' and a ``` (e.g. "| ```")
+  // Nothing else inside a ``` block is ever touched or trimmed.
+  function stripEdgeNewline(s, fromStart){
+    if(fromStart){
+      if(s.startsWith('\r\n')) return s.slice(2);
+      if(s.startsWith('\n')) return s.slice(1);
+    } else {
+      if(s.endsWith('\r\n')) return s.slice(0, -2);
+      if(s.endsWith('\n')) return s.slice(0, -1);
+    }
+    return s;
+  }
+
+  function splitFields(str){
+    const fields = [];
+    let segs = [];
+    let plain = '';
+    let i = 0;
+    const n = str.length;
+    function flushPlain(){ if(plain !== ''){ segs.push({ tick:false, text: plain }); plain = ''; } }
+    while(i < n){
+      if(str.startsWith('```', i)){
+        flushPlain();
+        const close = str.indexOf('```', i+3);
+        let inner;
+        if(close === -1){ inner = str.slice(i+3); i = n; }
+        else { inner = str.slice(i+3, close); i = close+3; }
+        inner = stripEdgeNewline(inner, true);
+        inner = stripEdgeNewline(inner, false);
+        segs.push({ tick:true, text: inner });
+      } else if(str[i] === '|'){
+        flushPlain();
+        fields.push(segs); segs = [];
+        i++;
+      } else {
+        plain += str[i]; i++;
+      }
+    }
+    flushPlain();
+    fields.push(segs);
+    return fields;
+  }
+
+  // Turns one field's segments into its final text. A field with no ``` at
+  // all keeps the old, simple behavior: trim it. A field that used ``` keeps
+  // every character inside the ``` exactly as typed, and only strips plain
+  // whitespace padding that sits before the first ``` or after the last one
+  // (i.e. right against the '|' delimiters) — not anything in between.
+  function fieldValue(segs){
+    if(!segs || segs.length === 0) return '';
+    if(!segs.some(s => s.tick)) return segs.map(s => s.text).join('').trim();
+    const out = segs.map(s => ({ ...s }));
+    if(!out[0].tick) out[0].text = out[0].text.replace(/^\s+/, '');
+    const last = out[out.length-1];
+    if(!last.tick) last.text = last.text.replace(/\s+$/, '');
+    return out.map(s => s.text).join('');
+  }
+
+  function parse(text){
+    // One card per line: Question | Answer | Hint (optional)
+    // Any of the 3 fields may optionally be wrapped in ``` ``` (independently
+    // of the others), and a ```-wrapped field may span multiple lines,
+    // spaces, tabs, blank lines, etc. A card ends once all opened ``` in it
+    // are closed and we hit a line break outside any ``` block.
+    const rawLines = text.split('\n');
+    const cards = [];
+    let buffer = null;
+    let insideBacktick = false;
+
+    function countTicks(line){
+      const m = line.match(/```/g);
+      return m ? m.length : 0;
+    }
+
+    function flush(){
+      if(buffer === null) return;
+      const joined = buffer.join('\n');
+      buffer = null;
+      if(!joined.trim()) return;
+      const fields = splitFields(joined);
+      const q = fieldValue(fields[0]);
+      const a = fieldValue(fields[1]);
+      const hint = fieldValue(fields[2]);
+      if(q.trim() && a.trim()) cards.push({ q, a, hint });
+    }
+
+    for(const raw of rawLines){
+      if(!insideBacktick){
+        const trimmed = raw.trim();
+        if(trimmed === '') continue; // blank line between cards
+        if(trimmed === '[' || trimmed === ']' || /^multiple items/i.test(trimmed)) continue;
+        buffer = [raw];
+      } else {
+        buffer.push(raw);
+      }
+      if(countTicks(raw) % 2 === 1) insideBacktick = !insideBacktick;
+      if(!insideBacktick) flush();
+    }
+    flush(); // trailing unterminated buffer, if any
+
+    return cards;
+  }
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  // ---------- saving a set as a real .txt file (original file — never modified after creation) ----------
+  async function saveSetAsFile(title, rawText){
+    if(!(await ensureFolder())) return false;
+    const filename = sanitizeFilename(title) + '.txt';
+    try{
+      const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(rawText);
+      await writable.close();
+      return true;
+    }catch(e){
+      alert('Could not save the file: ' + e.message);
+      return false;
+    }
+  }
+
+  // fallback storage (only used when File System Access API isn't available)
+  function loadFallbackSets(){
+    try{
+      const raw = localStorage.getItem(FALLBACK_SETS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    }catch(e){ return []; }
+  }
+  function saveFallbackSets(sets){
+    try{ localStorage.setItem(FALLBACK_SETS_KEY, JSON.stringify(sets)); }catch(e){}
+  }
+  function downloadTextFile(filename, text){
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- track (progress) storage — separate .txt file per set, never touches the set's own file ----------
+  function trackFilenameFor(setTitle){
+    return sanitizeFilename(setTitle) + TRACKS_SUFFIX;
+  }
+
+  async function loadTracksForSet(setEntry){
+    if(setEntry.isPublic || !FSA_SUPPORTED){
+      try{
+        const raw = localStorage.getItem(FALLBACK_TRACKS_KEY);
+        const all = raw ? JSON.parse(raw) : {};
+        return Array.isArray(all[setEntry.title]) ? all[setEntry.title] : [];
+      }catch(e){ return []; }
+    }
+    if(!dirHandle) return [];
+    try{
+      const fh = await dirHandle.getFileHandle(trackFilenameFor(setEntry.title), { create: false });
+      const file = await fh.getFile();
+      const parsed = JSON.parse(await file.text());
+      return Array.isArray(parsed) ? parsed : [];
+    }catch(e){
+      return []; // no track file yet
+    }
+  }
+
+  async function saveTracksForSet(setEntry, tracks){
+    if(setEntry.isPublic || !FSA_SUPPORTED){
+      try{
+        const raw = localStorage.getItem(FALLBACK_TRACKS_KEY);
+        const all = raw ? JSON.parse(raw) : {};
+        if(tracks.length === 0){ delete all[setEntry.title]; }
+        else { all[setEntry.title] = tracks; }
+        localStorage.setItem(FALLBACK_TRACKS_KEY, JSON.stringify(all));
+        return true;
+      }catch(e){ return false; }
+    }
+    if(!dirHandle) return false;
+    try{
+      if(tracks.length === 0){
+        try{ await dirHandle.removeEntry(trackFilenameFor(setEntry.title)); }catch(e){}
+        return true;
+      }
+      const fh = await dirHandle.getFileHandle(trackFilenameFor(setEntry.title), { create: true });
+      const writable = await fh.createWritable();
+      await writable.write(JSON.stringify(tracks, null, 2));
+      await writable.close();
+      return true;
+    }catch(e){
+      console.error('Could not save track file', e);
+      return false;
+    }
+  }
+
+  async function persistCurrentTrack(){
+    if(!currentTrack || !currentSet) return;
+    currentTrack.updatedAt = Date.now();
+    currentTrack.round = round;
+    currentTrack.totalInRound = totalInRound;
+    currentTrack.remainingCards = deck.slice(idx);
+    currentTrack.wrongSoFar = wrong.slice();
+    const i = tracksCache.findIndex(t => t.id === currentTrack.id);
+    if(i >= 0) tracksCache[i] = currentTrack; else tracksCache.push(currentTrack);
+    await saveTracksForSet(currentSet, tracksCache);
+  }
+
+  // ---------- library rendering ----------
+  async function fetchPublicSets(){
+    const sets = await Promise.all(ONLINE_PUBLIC_FLASHCARDS.map(async url => {
+      try{
+        const rawText = await (await fetch(url)).text();
+        const title = decodeURIComponent(url.split('/').pop().replace(/\.txt$/i, ''));
+        return { title, filename: title + '.txt', rawText, cards: parse(rawText), isPublic: true };
+      }catch(e){ return null; }
+    }));
+    return sets.filter(Boolean);
+  }
+
+  async function renderLibrary(){
+    setlistEl.innerHTML = '';
+    libEmptyEl.classList.add('hidden');
+    libNoFolderEl.classList.add('hidden');
+
+    let sets = [];
+    const noFolder = FSA_SUPPORTED && !dirHandle;
+
+    if(FSA_SUPPORTED && dirHandle){
+      for await (const [name, handle] of dirHandle.entries()){
+        if(handle.kind === 'file' && /\.txt$/i.test(name) && !name.toLowerCase().endsWith(TRACKS_SUFFIX)){
+          const file = await handle.getFile();
+          const rawText = await file.text();
+          sets.push({
+            title: name.replace(/\.txt$/i, ''),
+            filename: name,
+            rawText,
+            cards: parse(rawText)
+          });
+        }
+      }
+      sets.sort((a,b) => a.title.localeCompare(b.title));
+    } else if(!FSA_SUPPORTED){
+      sets = loadFallbackSets().map(s => ({...s, cards: parse(s.rawText)}));
+    }
+
+    sets = sets.concat(await fetchPublicSets());
+
+    if(sets.length === 0){
+      if(noFolder) libNoFolderEl.classList.remove('hidden');
+      else libEmptyEl.classList.remove('hidden');
+      return;
+    }
+
+    sets.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'setitem';
+
+      const info = document.createElement('div');
+      info.className = 'info';
+      const titleEl = document.createElement('div');
+      titleEl.className = 'title';
+      titleEl.textContent = s.title;
+      if(s.isPublic){
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = 'Public';
+        titleEl.append(' ', badge);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = s.cards.length + (s.cards.length === 1 ? ' card' : ' cards');
+      info.appendChild(titleEl);
+      info.appendChild(meta);
+      info.addEventListener('click', () => openSetDetail(s));
+
+      item.appendChild(info);
+
+      if(!s.isPublic){
+        const del = document.createElement('button');
+        del.className = 'delbtn';
+        del.textContent = 'Delete';
+        del.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if(!confirm('Delete "' + s.title + '" and all of its saved rounds? This can\'t be undone.')) return;
+          if(FSA_SUPPORTED){
+            try{ await dirHandle.removeEntry(s.filename); }catch(err){ alert('Could not delete: ' + err.message); return; }
+            try{ await dirHandle.removeEntry(trackFilenameFor(s.title)); }catch(err){ /* no tracks file, fine */ }
+          } else {
+            saveFallbackSets(loadFallbackSets().filter(x => x.title !== s.title));
+            await saveTracksForSet(s, []);
+          }
+          renderLibrary();
+        });
+        item.appendChild(del);
+      }
+
+      setlistEl.appendChild(item);
+    });
+  }
+
+  // ---------- set detail (new round vs continue a track) ----------
+  function trackStatusLabel(t){
+    if(t.completed) return `Completed — took ${t.round} round${t.round === 1 ? '' : 's'}`;
+    const doneSoFar = t.totalInRound - t.remainingCards.length;
+    return `Round ${t.round} — card ${doneSoFar + 1} of ${t.totalInRound}`;
+  }
+
+  function formatDate(ts){
+    const d = new Date(ts);
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function renderTracksList(){
+    tracklistEl.innerHTML = '';
+    const sorted = tracksCache.slice().sort((a,b) => b.updatedAt - a.updatedAt);
+    tracksEmptyEl.classList.toggle('hidden', sorted.length > 0);
+
+    sorted.forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'trackitem';
+
+      const tinfo = document.createElement('div');
+      tinfo.className = 'tinfo';
+      const tstate = document.createElement('div');
+      tstate.className = 'tstate';
+      tstate.textContent = trackStatusLabel(t);
+      const tmeta = document.createElement('div');
+      tmeta.className = 'tmeta';
+      tmeta.textContent = 'Last studied ' + formatDate(t.updatedAt);
+      tinfo.appendChild(tstate);
+      tinfo.appendChild(tmeta);
+
+      const tbtns = document.createElement('div');
+      tbtns.className = 'tbtns';
+
+      if(!t.completed){
+        const cont = document.createElement('button');
+        cont.className = 'contbtn';
+        cont.textContent = 'Continue';
+        cont.addEventListener('click', () => beginQuizWithTrack(t));
+        tbtns.appendChild(cont);
+      }
+
+      const del = document.createElement('button');
+      del.className = 'tdelbtn';
+      del.textContent = 'Delete';
+      del.addEventListener('click', async () => {
+        if(!confirm('Delete this round? This can\'t be undone.')) return;
+        tracksCache = tracksCache.filter(x => x.id !== t.id);
+        await saveTracksForSet(currentSet, tracksCache);
+        renderTracksList();
+      });
+      tbtns.appendChild(del);
+
+      item.appendChild(tinfo);
+      item.appendChild(tbtns);
+      tracklistEl.appendChild(item);
+    });
+  }
+
+  async function openSetDetail(setEntry){
+    currentSet = setEntry;
+    detailTitleEl.textContent = setEntry.title;
+    detailMetaEl.textContent = setEntry.cards.length + (setEntry.cards.length === 1 ? ' card' : ' cards') + ' in this set';
+    show('setDetail');
+    tracklistEl.innerHTML = '<p class="empty">Loading…</p>';
+    tracksCache = await loadTracksForSet(setEntry);
+    renderTracksList();
+  }
+
+  function newTrackObject(cards){
+    const deckCards = shuffle(cards.slice());
+    return {
+      id: genId(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      round: 1,
+      totalInRound: deckCards.length,
+      remainingCards: deckCards,
+      wrongSoFar: [],
+      completed: false
+    };
+  }
+
+  // ---------- quiz logic ----------
+  function beginQuizWithTrack(track){
+    currentTrack = track;
+    round = track.round;
+    totalInRound = track.totalInRound;
+    deck = track.remainingCards.slice();
+    wrong = track.wrongSoFar.slice();
+    idx = 0;
+    answeredOffset = totalInRound - deck.length;
+    show('quiz');
+    showCard();
+  }
+
+  function showCard(){
+    flipped = false;
+    hintShown = false;
+    hintboxEl.textContent = '';
+    judgeRow.classList.add('hidden');
+    const c = deck[idx];
+    cardEl.className = 'card';
+    cardTextEl.textContent = c.q;
+    hintBtn.disabled = !c.hint;
+    hintBtn.style.opacity = c.hint ? '1' : '.35';
+    progressEl.textContent = `Card ${idx + 1 + answeredOffset} / ${totalInRound}`;
+    roundEl.textContent = `Round ${round}`;
+  }
+
+  function flip(){
+    const c = deck[idx];
+    flipped = !flipped;
+    cardEl.classList.toggle('answer', flipped);
+    cardTextEl.textContent = flipped ? c.a : c.q;
+    judgeRow.classList.toggle('hidden', !flipped);
+  }
+
+  async function next(){
+    idx++;
+    if(idx >= deck.length){
+      if(wrong.length === 0){
+        if(currentTrack){
+          currentTrack.completed = true;
+          currentTrack.round = round;
+          currentTrack.totalInRound = totalInRound;
+          currentTrack.remainingCards = [];
+          currentTrack.wrongSoFar = [];
+          await persistCurrentTrack();
+        }
+        finish();
+      } else {
+        round++;
+        const nextDeck = shuffle(wrong.slice());
+        wrong = [];
+        deck = nextDeck;
+        totalInRound = nextDeck.length;
+        idx = 0;
+        answeredOffset = 0;
+        await persistCurrentTrack();
+        showCard();
+      }
+    } else {
+      await persistCurrentTrack();
+      showCard();
+    }
+  }
+
+  function finish(){
+    show('done');
+    document.getElementById('doneMsg').textContent =
+      round > 1 ? `Took you ${round} rounds. Nicely done.` : `First try, all correct!`;
+  }
+
+  cardEl.addEventListener('click', () => { if(deck.length) flip(); });
+
+  // ---------- card resize (drag any corner) ----------
+  (function initCardResize(){
+    let dragging = null; // { corner, startX, startY, startW, startH }
+
+    function minMax(){
+      return {
+        minW: 220, minH: 160,
+        maxW: Math.max(220, window.innerWidth - 40),
+        maxH: Math.max(160, window.innerHeight - 40)
+      };
+    }
+
+    function onDown(e){
+      const corner = e.currentTarget.dataset.corner;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = cardEl.getBoundingClientRect();
+      dragging = {
+        corner,
+        startX: e.clientX, startY: e.clientY,
+        startW: rect.width, startH: rect.height
+      };
+      cardEl.classList.add('resizing');
+      e.currentTarget.setPointerCapture(e.pointerId);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    }
+
+    function onMove(e){
+      if(!dragging) return;
+      const dx = e.clientX - dragging.startX;
+      const dy = e.clientY - dragging.startY;
+      const { minW, minH, maxW, maxH } = minMax();
+      // left corners grow as you drag left, right corners grow as you drag right
+      const wDelta = (dragging.corner === 'nw' || dragging.corner === 'sw') ? -dx : dx;
+      // top corners grow as you drag up, bottom corners grow as you drag down
+      const hDelta = (dragging.corner === 'nw' || dragging.corner === 'ne') ? -dy : dy;
+      const w = Math.min(maxW, Math.max(minW, dragging.startW + wDelta));
+      const h = Math.min(maxH, Math.max(minH, dragging.startH + hDelta));
+      cardEl.style.width = w + 'px';
+      cardEl.style.height = h + 'px';
+    }
+
+    function onUp(){
+      dragging = null;
+      cardEl.classList.remove('resizing');
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    }
+
+    document.querySelectorAll('.rs-handle').forEach(h => {
+      h.addEventListener('pointerdown', onDown);
+      h.addEventListener('click', e => e.stopPropagation());
+    });
+  })();
+
+  hintBtn.addEventListener('click', () => {
+    const c = deck[idx];
+    if(!c.hint) return;
+    hintShown = !hintShown;
+    hintboxEl.textContent = hintShown ? '💡 ' + c.hint : '';
+  });
+
+  document.getElementById('rightBtn').addEventListener('click', next);
+  document.getElementById('wrongBtn').addEventListener('click', () => {
+    wrong.push(deck[idx]);
+    next();
+  });
+
+  document.getElementById('quizExitBtn').addEventListener('click', async () => {
+    if(currentSet){
+      await openSetDetail(currentSet);
+    } else {
+      show('home');
+    }
+  });
+
+  // ---------- navigation ----------
+  document.getElementById('newSetBtn').addEventListener('click', () => {
+    titleInput.value = '';
+    textInput.value = '';
+    show('setup');
+  });
+
+  document.getElementById('viewLibraryBtn').addEventListener('click', async () => {
+    show('library');
+    setlistEl.innerHTML = '<p class="empty">Loading…</p>';
+    await renderLibrary();
+  });
+
+  document.getElementById('libBackBtn').addEventListener('click', () => show('home'));
+  document.getElementById('setupBackBtn').addEventListener('click', () => show('home'));
+  document.getElementById('detailBackBtn').addEventListener('click', async () => {
+    show('library');
+    setlistEl.innerHTML = '<p class="empty">Loading…</p>';
+    await renderLibrary();
+  });
+  chooseFolderBtn.addEventListener('click', chooseFolder);
+
+  document.getElementById('newRoundBtn').addEventListener('click', async () => {
+    if(!currentSet || currentSet.cards.length === 0){
+      alert('This set has no valid cards.');
+      return;
+    }
+    const track = newTrackObject(currentSet.cards);
+    tracksCache.push(track);
+    await saveTracksForSet(currentSet, tracksCache);
+    beginQuizWithTrack(track);
+  });
+
+  document.getElementById('startBtn').addEventListener('click', async () => {
+    const rawText = textInput.value;
+    const cards = parse(rawText);
+    if(cards.length === 0){
+      alert('No valid cards found. Use: Question | Answer | Hint (optional), one per line.');
+      return;
+    }
+    let title = titleInput.value.trim();
+    if(!title) title = 'Untitled set (' + new Date().toLocaleDateString() + ')';
+
+    if(FSA_SUPPORTED){
+      const ok = await saveSetAsFile(title, rawText);
+      if(!ok) return; // folder picker cancelled or write failed
+    } else {
+      const sets = loadFallbackSets().filter(s => s.title !== title);
+      sets.push({ title, rawText });
+      saveFallbackSets(sets);
+      downloadTextFile(sanitizeFilename(title) + '.txt', rawText);
+    }
+
+    const setEntry = { title, filename: sanitizeFilename(title) + '.txt', rawText, cards };
+    currentSet = setEntry;
+    const track = newTrackObject(cards);
+    tracksCache = [track];
+    await saveTracksForSet(setEntry, tracksCache);
+    beginQuizWithTrack(track);
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    show('home');
+  });
+
+  // fallback import (non-Chromium browsers)
+  document.getElementById('importBtn').addEventListener('click', () => fileInputEl.click());
+  fileInputEl.addEventListener('change', async () => {
+    const files = Array.from(fileInputEl.files || []);
+    if(files.length === 0) return;
+    const sets = loadFallbackSets();
+    for(const file of files){
+      const text = await file.text();
+      const title = file.name.replace(/\.txt$/i, '');
+      const existingIdx = sets.findIndex(s => s.title === title);
+      const entry = { title, rawText: text };
+      if(existingIdx >= 0) sets[existingIdx] = entry; else sets.push(entry);
+    }
+    saveFallbackSets(sets);
+    fileInputEl.value = '';
+    alert('Imported ' + files.length + ' file(s). Open "My saved sets" to study them.');
+  });
+
+  // ---------- init ----------
+  show('home');
+  initFolder();
+})();
+</script>
+</body>
+</html>
